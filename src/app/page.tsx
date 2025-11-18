@@ -18,6 +18,36 @@ interface RankingEntry {
   firstActive: string;
 }
 
+const LOCAL_STORAGE_KEY = 'suburi-new-entries';
+
+// Helper functions for localStorage
+function getLocalEntries(): SuburiEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalEntries(entries: SuburiEntry[]) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(entries));
+}
+
+function addLocalEntry(entry: SuburiEntry) {
+  const entries = getLocalEntries();
+  entries.push(entry);
+  saveLocalEntries(entries);
+}
+
+function removeLocalEntry(id: string) {
+  const entries = getLocalEntries();
+  const filtered = entries.filter(e => e.id !== id);
+  saveLocalEntries(filtered);
+}
+
 export default function Home() {
   // Form state
   const [name, setName] = useState('');
@@ -66,8 +96,73 @@ export default function Home() {
         fetch(`/api/rankings?${params.toString()}`),
       ]);
 
-      setEntries(await entriesRes.json());
-      setRankings(await rankingsRes.json());
+      const serverEntries: SuburiEntry[] = await entriesRes.json();
+      const localEntries = getLocalEntries();
+
+      // Merge server and local entries, avoiding duplicates by ID
+      const serverIds = new Set(serverEntries.map(e => e.id));
+      const uniqueLocalEntries = localEntries.filter(e => !serverIds.has(e.id));
+
+      // Apply date filters to local entries
+      let filteredLocalEntries = uniqueLocalEntries;
+      if (startDate) {
+        filteredLocalEntries = filteredLocalEntries.filter(e => e.date >= startDate);
+      }
+      if (endDate) {
+        filteredLocalEntries = filteredLocalEntries.filter(e => e.date <= endDate);
+      }
+
+      // Combine and sort
+      const allEntries = [...serverEntries, ...filteredLocalEntries];
+      allEntries.sort((a, b) => {
+        let comparison = 0;
+        if (sortBy === 'date') {
+          comparison = a.date.localeCompare(b.date);
+        } else if (sortBy === 'count') {
+          comparison = a.count - b.count;
+        } else if (sortBy === 'name') {
+          comparison = a.name.localeCompare(b.name);
+        }
+        return sortOrder === 'desc' ? -comparison : comparison;
+      });
+
+      setEntries(allEntries);
+
+      // Calculate rankings including local entries
+      const rankingsData = await rankingsRes.json();
+
+      // Add local entries to rankings calculation
+      const rankingsMap = new Map<string, RankingEntry>();
+      for (const r of rankingsData) {
+        rankingsMap.set(r.name, r);
+      }
+
+      for (const entry of filteredLocalEntries) {
+        const existing = rankingsMap.get(entry.name);
+        if (existing) {
+          existing.totalCount += entry.count;
+          existing.sessions += 1;
+          if (entry.date > existing.lastActive) existing.lastActive = entry.date;
+          if (entry.date < existing.firstActive) existing.firstActive = entry.date;
+        } else {
+          rankingsMap.set(entry.name, {
+            rank: 0,
+            name: entry.name,
+            club: entry.club,
+            totalCount: entry.count,
+            sessions: 1,
+            lastActive: entry.date,
+            firstActive: entry.date,
+          });
+        }
+      }
+
+      // Re-rank
+      const updatedRankings = Array.from(rankingsMap.values())
+        .sort((a, b) => b.totalCount - a.totalCount)
+        .map((r, i) => ({ ...r, rank: i + 1 }));
+
+      setRankings(updatedRankings);
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -112,8 +207,25 @@ export default function Home() {
       return;
     }
 
+    // Create entry locally first
+    const newEntry: SuburiEntry = {
+      id: 'local-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+      name: name.trim(),
+      club: club.trim(),
+      count: parseInt(count),
+      date,
+      metadata: {
+        addedAt: new Date().toISOString(),
+        location,
+      },
+    };
+
+    // Save to localStorage for persistence
+    addLocalEntry(newEntry);
+
+    // Also try to save to server (for current session)
     try {
-      const response = await fetch('/api/entries', {
+      await fetch('/api/entries', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -126,30 +238,35 @@ export default function Home() {
           location,
         }),
       });
-
-      if (response.ok) {
-        setName('');
-        setClub('');
-        setCount('');
-        setDate(new Date().toISOString().split('T')[0]);
-        fetchData();
-        alert('Entry added successfully!');
-      }
     } catch (error) {
-      console.error('Failed to add entry:', error);
-      alert('Failed to add entry');
+      console.error('Failed to save to server:', error);
+      // Entry is still saved locally, so continue
     }
+
+    setName('');
+    setClub('');
+    setCount('');
+    setDate(new Date().toISOString().split('T')[0]);
+    fetchData();
+    alert('Entry added successfully!');
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this entry?')) return;
 
+    // Remove from localStorage if it's a local entry
+    if (id.startsWith('local-')) {
+      removeLocalEntry(id);
+    }
+
+    // Also try to delete from server
     try {
       await fetch(`/api/entries?id=${id}`, { method: 'DELETE' });
-      fetchData();
     } catch (error) {
-      console.error('Failed to delete entry:', error);
+      console.error('Failed to delete from server:', error);
     }
+
+    fetchData();
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
