@@ -45,7 +45,6 @@ export default function Home() {
   // Import state
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
-  const [seeding, setSeeding] = useState(false);
 
   // Fetch location on mount
   useEffect(() => {
@@ -184,33 +183,6 @@ export default function Home() {
       setImporting(false);
       // Reset file input
       e.target.value = '';
-    }
-  };
-
-  const handleSeed = async () => {
-    if (!confirm('This will load all historical data. Continue?')) return;
-
-    setSeeding(true);
-    setImportResult(null);
-
-    try {
-      const response = await fetch('/api/seed', {
-        method: 'POST',
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setImportResult(`Success! ${result.message}`);
-        fetchData();
-      } else {
-        setImportResult(`Error: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('Seed error:', error);
-      setImportResult('Failed to seed data');
-    } finally {
-      setSeeding(false);
     }
   };
 
@@ -391,20 +363,6 @@ export default function Home() {
                   {importResult}
                 </p>
               )}
-
-              {/* Seed historical data */}
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                <button
-                  onClick={handleSeed}
-                  disabled={seeding || importing}
-                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-md transition-colors text-sm"
-                >
-                  {seeding ? 'Loading Historical Data...' : 'Load Historical Data'}
-                </button>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Load all pre-existing suburi records
-                </p>
-              </div>
             </div>
           </div>
         )}

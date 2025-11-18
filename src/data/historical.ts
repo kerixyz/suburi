@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { SuburiEntry, normalizeName } from '@/types';
 
-// Raw data from the spreadsheet
+// Raw historical data from spreadsheet
 const SEED_DATA = `4/7/2025	angge	100
 4/7/2025	ejay	100
 4/8/2025	angge	110
@@ -887,68 +887,47 @@ const SEED_DATA = `4/7/2025	angge	100
 11/18/2025	angge	200`;
 
 function parseDate(dateStr: string): string {
-  // Parse M/D/YYYY format to YYYY-MM-DD
   const parts = dateStr.split('/');
   if (parts.length !== 3) return dateStr;
-
   const month = parts[0].padStart(2, '0');
   const day = parts[1].padStart(2, '0');
   const year = parts[2];
-
   return `${year}-${month}-${day}`;
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const baseUrl = request.nextUrl.origin;
+// Generate UUIDs for historical entries
+function generateId(): string {
+  return 'hist-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now().toString(36);
+}
 
-    // Parse the seed data
-    const lines = SEED_DATA.trim().split('\n');
-    const entries = lines.map(line => {
-      const parts = line.split('\t');
-      if (parts.length < 3) return null;
+// Parse and create historical entries
+export function getHistoricalEntries(): SuburiEntry[] {
+  const lines = SEED_DATA.trim().split('\n');
+  const entries: SuburiEntry[] = [];
 
-      const date = parseDate(parts[0]);
-      const name = parts[1];
-      // Remove commas from numbers like "1,100.00"
-      const countStr = parts[2].replace(/,/g, '').replace(/\.00$/, '');
-      const count = parseInt(countStr) || 0;
+  for (const line of lines) {
+    const parts = line.split('\t');
+    if (parts.length < 3) continue;
 
-      return { date, name, count };
-    }).filter(e => e && e.count > 0);
+    const date = parseDate(parts[0]);
+    const rawName = parts[1];
+    const countStr = parts[2].replace(/,/g, '').replace(/\.00$/, '');
+    const count = parseInt(countStr) || 0;
 
-    // Import entries via the entries API
-    let successCount = 0;
+    if (count <= 0) continue;
 
-    for (const entry of entries) {
-      const response = await fetch(`${baseUrl}/api/entries`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: entry!.name,
-          club: 'Unknown', // Will add club data later
-          count: entry!.count,
-          date: entry!.date,
-          location: { city: 'Manila', country: 'Philippines' },
-        }),
-      });
-
-      if (response.ok) {
-        successCount++;
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: `Seeded ${successCount} of ${entries.length} entries`,
-      imported: successCount,
-      total: entries.length,
+    entries.push({
+      id: generateId(),
+      name: normalizeName(rawName),
+      club: 'Unknown',
+      count,
+      date,
+      metadata: {
+        addedAt: new Date().toISOString(),
+        location: { city: 'Manila', country: 'Philippines' },
+      },
     });
-  } catch (error) {
-    console.error('Seed error:', error);
-    return NextResponse.json(
-      { error: 'Failed to seed data' },
-      { status: 500 }
-    );
   }
+
+  return entries;
 }

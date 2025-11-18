@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SuburiEntry, normalizeName } from '@/types';
+import { getHistoricalEntries } from '@/data/historical';
 
-// In-memory storage (in production, use a database)
-// For Vercel deployment, consider using Vercel KV, Postgres, or external DB
-let entries: SuburiEntry[] = [];
+// Pre-load historical data, new entries will be added on top
+// Note: New entries persist only during this server session
+// For permanent storage, use a database (Vercel KV, Postgres, etc.)
+let entries: SuburiEntry[] = getHistoricalEntries();
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
