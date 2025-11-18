@@ -40,6 +40,10 @@ export default function Home() {
   // Active tab
   const [activeTab, setActiveTab] = useState<'add' | 'entries' | 'rankings'>('add');
 
+  // Import state
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
+
   // Fetch location on mount
   useEffect(() => {
     fetchLocation();
@@ -141,6 +145,40 @@ export default function Home() {
       fetchData();
     } catch (error) {
       console.error('Failed to delete entry:', error);
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setImportResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/import', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setImportResult(`Success! ${result.message}`);
+        fetchData();
+      } else {
+        setImportResult(`Error: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      setImportResult('Failed to import file');
+    } finally {
+      setImporting(false);
+      // Reset file input
+      e.target.value = '';
     }
   };
 
@@ -269,6 +307,46 @@ export default function Home() {
                 Add Entry
               </button>
             </form>
+
+            {/* Import from Excel */}
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
+                Import from Excel
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                Upload an Excel file (.xlsx, .xls) with columns: Name, Count/Swings, Date
+              </p>
+              <label className="block">
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleImport}
+                  disabled={importing}
+                  className="block w-full text-sm text-gray-500 dark:text-gray-400
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-md file:border-0
+                    file:text-sm file:font-medium
+                    file:bg-green-50 file:text-green-700
+                    hover:file:bg-green-100
+                    dark:file:bg-green-900 dark:file:text-green-300
+                    disabled:opacity-50"
+                />
+              </label>
+              {importing && (
+                <p className="mt-2 text-sm text-blue-600 dark:text-blue-400">
+                  Importing...
+                </p>
+              )}
+              {importResult && (
+                <p className={`mt-2 text-sm ${
+                  importResult.startsWith('Success')
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {importResult}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
