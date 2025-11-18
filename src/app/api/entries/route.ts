@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SuburiEntry } from '@/types';
+import { SuburiEntry, normalizeName } from '@/types';
 
 // In-memory storage (in production, use a database)
 // For Vercel deployment, consider using Vercel KV, Postgres, or external DB
@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
 
   const newEntry: SuburiEntry = {
     id: crypto.randomUUID(),
-    name: body.name,
+    name: normalizeName(body.name),
+    club: body.club || 'Unknown',
     count: body.count,
     date: body.date,
     metadata: {

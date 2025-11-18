@@ -60,12 +60,18 @@ export async function POST(request: NextRequest) {
         date = new Date().toISOString().split('T')[0];
       }
 
+      // Try to find club column
+      const club = row.Club || row.club || row.CLUB ||
+        row.Dojo || row.dojo || row.DOJO ||
+        row['Kendo Club'] || row['kendo club'] || 'Unknown';
+
       // Try to find location columns
       const city = row.City || row.city || row.CITY || null;
       const country = row.Country || row.country || row.COUNTRY || null;
 
       return {
         name,
+        club,
         count,
         date,
         location: city && country ? { city, country } : null,

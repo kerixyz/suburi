@@ -11,6 +11,7 @@ interface LocationInfo {
 interface RankingEntry {
   rank: number;
   name: string;
+  club: string;
   totalCount: number;
   sessions: number;
   lastActive: string;
@@ -20,6 +21,7 @@ interface RankingEntry {
 export default function Home() {
   // Form state
   const [name, setName] = useState('');
+  const [club, setClub] = useState('');
   const [count, setCount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [location, setLocation] = useState<LocationInfo | null>(null);
@@ -105,7 +107,7 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name || !count || !date) {
+    if (!name || !club || !count || !date) {
       alert('Please fill in all fields');
       return;
     }
@@ -118,6 +120,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           name,
+          club,
           count: parseInt(count),
           date,
           location,
@@ -126,6 +129,7 @@ export default function Home() {
 
       if (response.ok) {
         setName('');
+        setClub('');
         setCount('');
         setDate(new Date().toISOString().split('T')[0]);
         fetchData();
@@ -271,6 +275,19 @@ export default function Home() {
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                   placeholder="Enter your name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Kendo Club
+                </label>
+                <input
+                  type="text"
+                  value={club}
+                  onChange={(e) => setClub(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter your kendo club"
                 />
               </div>
 
@@ -425,6 +442,9 @@ export default function Home() {
                           <span className="font-semibold text-gray-900 dark:text-white">
                             {entry.name}
                           </span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            ({entry.club})
+                          </span>
                           <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                             {entry.count}
                           </span>
@@ -516,6 +536,9 @@ export default function Home() {
                         Name
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                        Club
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                         Total Swings
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
@@ -544,6 +567,9 @@ export default function Home() {
                         </td>
                         <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
                           {entry.name}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                          {entry.club}
                         </td>
                         <td className="px-4 py-3 text-2xl font-bold text-blue-600 dark:text-blue-400">
                           {entry.totalCount.toLocaleString()}

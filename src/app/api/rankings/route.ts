@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     if (!acc[entry.name]) {
       acc[entry.name] = {
         name: entry.name,
+        club: entry.club || 'Unknown',
         totalCount: 0,
         sessions: 0,
         lastActive: entry.date,
@@ -27,12 +28,13 @@ export async function GET(request: NextRequest) {
     acc[entry.name].sessions += 1;
     if (entry.date > acc[entry.name].lastActive) {
       acc[entry.name].lastActive = entry.date;
+      acc[entry.name].club = entry.club || acc[entry.name].club; // Use most recent club
     }
     if (entry.date < acc[entry.name].firstActive) {
       acc[entry.name].firstActive = entry.date;
     }
     return acc;
-  }, {} as Record<string, { name: string; totalCount: number; sessions: number; lastActive: string; firstActive: string }>);
+  }, {} as Record<string, { name: string; club: string; totalCount: number; sessions: number; lastActive: string; firstActive: string }>);
 
   const rankings = Object.values(aggregated)
     .sort((a, b) => b.totalCount - a.totalCount)
